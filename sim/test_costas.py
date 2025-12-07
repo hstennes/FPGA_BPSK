@@ -1,4 +1,4 @@
-VICOCO = False
+VICOCO = True
 MATPLOTLIB = False
 
 import cocotb

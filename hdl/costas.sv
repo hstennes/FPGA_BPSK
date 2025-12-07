@@ -92,7 +92,6 @@ module costas #
             m00_axis_tstrb  <= 0;
             phase <= 0;
             freq <= 0;
-            error <= 0;
         end else begin
 
             if (s00_axis_tvalid && s00_axis_tready) begin
