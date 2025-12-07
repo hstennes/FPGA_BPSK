@@ -86,10 +86,6 @@ module costas #
                 pstrb[i] <= 0;
             end
 
-            m00_axis_tvalid <= 0;
-            m00_axis_tlast  <= 0;
-            m00_axis_tdata  <= 0;
-            m00_axis_tstrb  <= 0;
             phase <= 0;
             freq <= 0;
         end else begin
