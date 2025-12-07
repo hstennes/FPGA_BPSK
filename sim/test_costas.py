@@ -1,3 +1,5 @@
+VICOCO = False
+
 import cocotb
 import os
 import random
@@ -8,7 +10,10 @@ from pathlib import Path
 from cocotb.clock import Clock
 from cocotb.triggers import Timer
 from cocotb.utils import get_sim_time as gst
-from cocotb.runner import get_runner
+if VICOCO:
+    from vicoco.vivado_runner import get_runner
+else:
+    from cocotb.runner import get_runner
 from cocotb_bus.bus import Bus
 import matplotlib.pyplot as plt
 from cocotb_bus.drivers import BusDriver
@@ -362,7 +367,10 @@ specified should get updated for different simulations.
 def axis_runner():
     """Simulate the counter using the Python runner."""
     hdl_toplevel_lang = os.getenv("HDL_TOPLEVEL_LANG", "verilog")
-    sim = os.getenv("SIM", "icarus")
+    if VICOCO:
+        sim = os.getenv("SIM", "vivado")
+    else:
+        sim = os.getenv("SIM", "icarus")
     proj_path = Path(__file__).resolve().parent.parent
     sys.path.append(str(proj_path / "sim" / "model"))
     sources = [proj_path / "hdl" / "costas.sv"] #grow/modify this as needed.
