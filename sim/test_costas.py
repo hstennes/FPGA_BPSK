@@ -1,4 +1,5 @@
 VICOCO = False
+MATPLOTLIB = False
 
 import cocotb
 import os
@@ -15,13 +16,14 @@ if VICOCO:
 else:
     from cocotb.runner import get_runner
 from cocotb_bus.bus import Bus
-import matplotlib.pyplot as plt
+if MATPLOTLIB:
+    import matplotlib.pyplot as plt
+    from matplotlib.animation import FuncAnimation, PillowWriter
 from cocotb_bus.drivers import BusDriver
 from cocotb_bus.monitors import Monitor
 from cocotb_bus.monitors import BusMonitor
 from cocotb_bus.scoreboard import Scoreboard
 import numpy as np
-from matplotlib.animation import FuncAnimation, PillowWriter
 from cocotb.triggers import Timer, ClockCycles, RisingEdge, FallingEdge, ReadOnly
 
 
@@ -149,7 +151,7 @@ class AXIS_Monitor(BusMonitor):
 
                 if self.name == 'm00':
                     # print(self.dut.error.value)
-                    print(self.dut.new_phase.value)
+                    print(twos_to_int32(int(self.dut.new_freq.value)) / (GAIN * GAIN))
                     dut_error.append(twos_to_int32(int(self.dut.error.value)) / (GAIN * GAIN))
                     # dut_error.append(twos_to_int32(int(self.dut.beta_error.value)))
                     dut_freq.append(twos_to_int32(int(self.dut.new_freq.value)) / (GAIN * GAIN))
@@ -325,40 +327,41 @@ async def test_a(dut):
     for i in range(5):
         print(f"original {samples[i]:.6f} rot {dut_iq[i]:.6f}, error {dut_error[i]:.6f}, freq {dut_freq[i]:.6f}, phase {dut_phase[i]:.6f}")
 
-    fig, ((ax_iq, ax_error), (ax_freq, ax_phase)) = plt.subplots(2, 2, figsize=(10, 8))
-    ax_iq.set_xlim(-1.5, 1.5)
-    ax_iq.set_ylim(-1.5, 1.5)
-    ax_iq.set_xlabel("I")
-    ax_iq.set_ylabel("Q")
-    ax_iq.set_title("IQ Plot")
-    # scatter = ax_iq.scatter(dut_iq.real, dut_iq.imag)
-    scatter = ax_iq.scatter([], [])
+    if MATPLOTLIB:
+        fig, ((ax_iq, ax_error), (ax_freq, ax_phase)) = plt.subplots(2, 2, figsize=(10, 8))
+        ax_iq.set_xlim(-1.5, 1.5)
+        ax_iq.set_ylim(-1.5, 1.5)
+        ax_iq.set_xlabel("I")
+        ax_iq.set_ylabel("Q")
+        ax_iq.set_title("IQ Plot")
+        # scatter = ax_iq.scatter(dut_iq.real, dut_iq.imag)
+        scatter = ax_iq.scatter([], [])
 
-    ax_error.set_title("Error")
-    ax_error.set_xlabel("Sample Index")
-    ax_error.set_ylabel("err")
-    ax_error.plot(np.arange(len(dut_error)), dut_error)
+        ax_error.set_title("Error")
+        ax_error.set_xlabel("Sample Index")
+        ax_error.set_ylabel("err")
+        ax_error.plot(np.arange(len(dut_error)), dut_error)
 
-    ax_freq.set_title("Frequency")
-    ax_freq.set_xlabel("Sample Index")
-    ax_freq.set_ylabel("Hz")
-    ax_freq.plot(np.arange(len(dut_freq)), dut_freq)
+        ax_freq.set_title("Frequency")
+        ax_freq.set_xlabel("Sample Index")
+        ax_freq.set_ylabel("Hz")
+        ax_freq.plot(np.arange(len(dut_freq)), dut_freq)
 
-    ax_phase.set_title("Phase")
-    ax_phase.set_xlabel("Sample Index")
-    ax_phase.set_ylabel("Phase (radians)")
-    ax_phase.plot(np.arange(len(dut_phase)), dut_phase)
+        ax_phase.set_title("Phase")
+        ax_phase.set_xlabel("Sample Index")
+        ax_phase.set_ylabel("Phase (radians)")
+        ax_phase.plot(np.arange(len(dut_phase)), dut_phase)
 
-    # update animation frame
-    def update(frame):
-        # update IQ scatter (sliding window)
-        window = dut_iq[frame:(frame+1)]
-        scatter.set_offsets(np.column_stack((window.real, window.imag)))
+        # update animation frame
+        def update(frame):
+            # update IQ scatter (sliding window)
+            window = dut_iq[frame:(frame+1)]
+            scatter.set_offsets(np.column_stack((window.real, window.imag)))
 
-        return scatter
+            return scatter
 
-    anim = FuncAnimation(fig, update, frames=250, interval=30, blit=False)
-    plt.show()
+        anim = FuncAnimation(fig, update, frames=250, interval=30, blit=False)
+        plt.show()
 
 
 """the code below should largely remain unchanged in structure, though the specific files and things
