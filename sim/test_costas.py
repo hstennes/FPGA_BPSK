@@ -151,12 +151,13 @@ class AXIS_Monitor(BusMonitor):
 
                 if self.name == 'm00':
                     # print(self.dut.error.value)
-                    print(twos_to_int32(int(self.dut.new_freq.value)) / (GAIN * GAIN))
-                    dut_error.append(twos_to_int32(int(self.dut.error.value)) / (GAIN * GAIN))
-                    # dut_error.append(twos_to_int32(int(self.dut.beta_error.value)))
-                    dut_freq.append(twos_to_int32(int(self.dut.new_freq.value)) / (GAIN * GAIN))
-                    dut_phase.append(int(self.dut.new_phase.value) * 2 * np.pi / (2 ** 16))
-                    dut_iq.append(decode_costas_data(int(data)))
+                    print(decode_costas_data(int(data)).imag)
+                    if not VICOCO:
+                        dut_error.append(twos_to_int32(int(self.dut.error.value)) / (GAIN * GAIN))
+                        # dut_error.append(twos_to_int32(int(self.dut.beta_error.value)))
+                        dut_freq.append(twos_to_int32(int(self.dut.new_freq.value)) / (GAIN * GAIN))
+                        dut_phase.append(int(self.dut.new_phase.value) * 2 * np.pi / (2 ** 16))
+                        dut_iq.append(decode_costas_data(int(data)))
                 self.transactions+=1
                 thing = dict(data=data.signed_integer,last=last,
                              name=self.name,count=self.transactions)
