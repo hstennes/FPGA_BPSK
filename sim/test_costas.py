@@ -1,5 +1,5 @@
-VICOCO = True
-MATPLOTLIB = False
+VICOCO = False
+MATPLOTLIB = True
 
 import cocotb
 import os
@@ -158,6 +158,7 @@ class AXIS_Monitor(BusMonitor):
                         dut_freq.append(twos_to_int32(int(self.dut.new_freq.value)) / (GAIN * GAIN))
                         dut_phase.append(int(self.dut.new_phase.value) * 2 * np.pi / (2 ** 16))
                         dut_iq.append(decode_costas_data(int(data)))
+                        pass
                 self.transactions+=1
                 thing = dict(data=data.signed_integer,last=last,
                              name=self.name,count=self.transactions)
@@ -377,8 +378,8 @@ def axis_runner():
         sim = os.getenv("SIM", "icarus")
     proj_path = Path(__file__).resolve().parent.parent
     sys.path.append(str(proj_path / "sim" / "model"))
-    sources = [proj_path / "hdl" / "costas.sv"] #grow/modify this as needed.
-    hdl_toplevel = "costas"
+    sources = [proj_path / "hdl" / "costas.sv", proj_path / "hdl" / "costas_wrapper.v"] #grow/modify this as needed.
+    hdl_toplevel = "costas_wrapper"
     build_test_args = ["-Wall"]#,"COCOTB_RESOLVE_X=ZEROS"]
     parameters = {}
     sys.path.append(str(proj_path / "sim"))
