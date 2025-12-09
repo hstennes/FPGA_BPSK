@@ -16,7 +16,7 @@ module preamble_detector #
 		output logic  s00_axis_tready,
 
         input wire [C_S00_AXIS_TDATA_WIDTH - 1:0] preamble_detector_threshold,
-        output wire trigger
+        output wire [1:0] trigger
 	);
 
     assign s00_axis_tready = 1'b1;
@@ -24,11 +24,21 @@ module preamble_detector #
     // 3-element pipeline of the last 3 pieces of data that came in.
     logic [C_S00_AXIS_TDATA_WIDTH - 1: 0] lookback_window [2:0];
 
+    logic trigger_val;
+    logic trigger_polarity;
+
     logic local_maximum;
+    logic local_minimum;
     assign local_maximum = lookback_window[1] > lookback_window[0] && lookback_window[1] > lookback_window[2];
+    assign local_minimum = lookback_window[1] < lookback_window[0] && lookback_window[1] < lookback_window[2];
 
     // Trigger goes high only when we see a local maximum of sufficiently high value.
-    assign trigger = local_maximum && lookback_window[1] >= preamble_detector_threshold;
+    assign trigger_val = (local_maximum && ($signed(lookback_window[1]) >= $signed(preamble_detector_threshold))) || 
+                        (local_minimum && ($signed(lookback_window[1]) <= $signed(-preamble_detector_threshold)));
+
+    assign trigger_polarity = lookback_window[1][C_M00_AXIS_TDATA_WIDTH-1]; //invert if less than 0
+
+    assign trigger = {trigger_polarity, trigger_val};
 
     always_ff @(posedge s00_axis_aclk) begin
         if (~s00_axis_aresetn) begin

@@ -21,9 +21,17 @@ from cocotb_bus.monitors import Monitor
 from cocotb_bus.monitors import BusMonitor
 from cocotb_bus.scoreboard import Scoreboard
 import numpy as np
+import matplotlib.pyplot as plt
+
 test_file = os.path.basename(__file__).replace(".py","")
 
 proj_path = Path(__file__).resolve().parent.parent
+
+real_data = []
+if __name__ == "__main__":    
+    real_data = np.load("real_data_32.npy")
+
+# global real_data 
 
 class AXISMonitor(BusMonitor):
     """
@@ -146,30 +154,37 @@ async def reset(clk,rst, cycles_held = 3,polarity=1):
 {"type":"read_burst", "duration":10}
 '''
 
+def uint32_to_int32(x):
+    x = x & 0xFFFFFFFF  # ensure 32-bit
+    return x if x < 0x80000000 else x - 0x100000000
+
 @cocotb.test()
 async def test_a(dut):
     """cocotb test for AXIS FIR15"""
-    received_squitters = []
+    filter_out = []
 
     inm = AXISMonitor(dut,'s00',dut.s00_axis_aclk)
-    outm = AXISMonitor(dut,'m00',dut.s00_axis_aclk, callback = lambda x: received_squitters.append(x.integer))
+    outm = AXISMonitor(dut,'m00',dut.s00_axis_aclk, callback = lambda x: filter_out.append(uint32_to_int32(x.integer)))
     ind = AXISDriver(dut,'s00',dut.s00_axis_aclk,"M") #M driver for S port
     outd = AXISDriver(dut,'m00',dut.s00_axis_aclk,"S") #S driver for M port
    
     # Load coefficients (ADS-B preamble)
-    SAMPLE_RATE = 64e6
-    SAMPLE_PERIOD = 1 / SAMPLE_RATE
+    SAMPLES_PER_SYMBOL = 32
 
-    preamble_length = int(8e-6 / SAMPLE_PERIOD) # Preamble is 8 microseconds long
+    preamble_length = int(16 * SAMPLES_PER_SYMBOL) # Preamble is 8 microseconds long
     preamble = []
-    preamble += [1] * int(0.5e-6 / SAMPLE_PERIOD)
-    preamble += [0] * int(0.5e-6 / SAMPLE_PERIOD)
-    preamble += [1] * int(0.5e-6 / SAMPLE_PERIOD)
-    preamble += [0] * int(2e-6 / SAMPLE_PERIOD)
-    preamble += [1] * int(0.5e-6 / SAMPLE_PERIOD)
-    preamble += [0] * int(0.5e-6 / SAMPLE_PERIOD)
-    preamble += [1] * int(0.5e-6 / SAMPLE_PERIOD)
-    preamble += [0] * int(3e-6 / SAMPLE_PERIOD)
+    preamble += [1] * int(1 * SAMPLES_PER_SYMBOL)
+    preamble += [-1] * int(1 * SAMPLES_PER_SYMBOL)
+    preamble += [1] * int(1 * SAMPLES_PER_SYMBOL)
+    preamble += [-1] * int(4 * SAMPLES_PER_SYMBOL)
+    preamble += [1] * int(1 * SAMPLES_PER_SYMBOL)
+    preamble += [-1] * int(1 * SAMPLES_PER_SYMBOL)
+    preamble += [1] * int(1 * SAMPLES_PER_SYMBOL)
+    preamble += [-1] * int(6 * SAMPLES_PER_SYMBOL)
+
+    reflect = False
+    if reflect:
+        preamble = [-x for x in preamble]
 
     assert len(preamble) == preamble_length, "Preamble generation failed"
 
@@ -178,31 +193,19 @@ async def test_a(dut):
         preamble_coeffs_packed |= (preamble[i] & 0xFF) << (i * 8)
     print("Preamble coeffs packed:")
     print(hex(preamble_coeffs_packed))
-    dut.preamble_coeffs.value = preamble_coeffs_packed
+    dut.coeffs.value = preamble_coeffs_packed
 
-    lowpass_coeffs_packed = 0
-    for i in range(len(lowpass.lowpass_coeffs)):
-        lowpass_coeffs_packed |= (lowpass.lowpass_coeffs[i] & 0xFF) << (i * 8)
-    print("Lowpass coeffs packed:")
-    print(hex(lowpass_coeffs_packed))
-    dut.lowpass_coeffs.value = lowpass_coeffs_packed
-
-    dut.preamble_detector_threshold.value = 8000
-    dut.decoder_threshold.value = 40
+    # dut.preamble_detector_threshold.value = 8000
+    # dut.decoder_threshold.value = 40
 
     #cocotb.start_soon(Clock(dut.s00_axis_aclk, 15625, units="ps").start()) # 64 MHz clock
     cocotb.start_soon(Clock(dut.s00_axis_aclk, 15626, units="ps").start()) # 64 MHz clock, plus 1 ps so that /2 is even for simulator issues
     await reset(dut.s00_axis_aclk, dut.s00_axis_aresetn,2,0)
 
-    # Load example ADC data.
-    #adc_data_iq = np.load(proj_path / "sim" / "adsb_squitter_64MSPS_iq.np")
-    adc_data_iq = np.load(proj_path / "sim" / "adsb_squitters_fake_50dbm_64MSPS_iq.np")
-    #adc_data_iq = np.load(proj_path / "sim" / "adsb_squitters_fake_40dbm_64MSPS_iq_again.np")
-    real_data = adc_data_iq.real.astype(np.int16)
-    imag_data = adc_data_iq.imag.astype(np.int16)
+    real_data = np.load(proj_path / "sim" / "real_data_32.npy")
     packed_data = np.zeros((len(real_data),), dtype = np.uint32)
     for i in range(len(real_data)):
-        packed_data[i] = (real_data[i].astype(np.int32) << 16) | (imag_data[i].astype(np.uint32) & 0xFFFF)
+        packed_data[i] = real_data[i].astype(np.int32)
 
     # Write the example ADC data.
     data = {'type':'write_burst', "contents": {"data": packed_data}}
@@ -211,15 +214,19 @@ async def test_a(dut):
     ind.append(pause)
 
     # Read the processed data.
-    data = {'type':'read_burst', "duration": 3}
+    data = {'type':'read_burst', "duration": 10000}
     outd.append(data)
     outd.append(pause)
 
-    await ClockCycles(dut.s00_axis_aclk, len(adc_data_iq) + len(preamble) + 100)
+    await ClockCycles(dut.s00_axis_aclk, len(real_data) + len(preamble) + 100)
 
-    print("Received squitters:")
-    print(received_squitters)
-    assert [0x8d780976990c83ad98041dc0fbd7, 0x8d780976990c83ad98041dc0fbd7] == received_squitters
+    plt.figure()
+    plt.plot(filter_out, 'o-')
+    plt.title("Filtered Output with Preamble Detection")
+    plt.xlabel("Sample Index")
+    plt.ylabel("Filtered Value")
+    plt.grid()
+    plt.show()
 
 def adsb_runner():
     """Simulate the ADSB decoder using the Python runner."""
@@ -228,13 +235,13 @@ def adsb_runner():
     #sim = os.getenv("SIM", "vivado")
     sys.path.append(str(proj_path / "sim" / "model"))
     sys.path.append(str(proj_path / "hdl" ))
-    sources = [proj_path / "hdl" / "axis_fir.sv", proj_path / "hdl" / "preamble_detector.sv", proj_path / "hdl" / "top.sv", proj_path / "hdl" / "adsb_decoder.sv", proj_path / "hdl" / "cordic.sv"]
+    sources = [proj_path / "hdl" / "axis_fir.sv", proj_path / "hdl" / "preamble_detector.sv", proj_path / "hdl" / "top.sv", proj_path / "hdl" / "bpsk_decoder.sv", proj_path / "hdl" / "cordic.sv"]
     #sources = [proj_path / "hdl" / "j_math.sv"]
     build_test_args = ["-Wall"]
     parameters = {} #!!!
     sys.path.append(str(proj_path / "sim"))
     runner = get_runner(sim)
-    hdl_toplevel = "top"
+    hdl_toplevel = "axis_fir"
     runner.build(
         sources=sources,
         hdl_toplevel=hdl_toplevel,
@@ -251,5 +258,6 @@ def adsb_runner():
         test_args=run_test_args,
         waves=True
     )
-if __name__ == "__main__":
+if __name__ == "__main__":    
+    # real_data = np.load("real_data_32.npy")
     adsb_runner()

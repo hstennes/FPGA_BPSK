@@ -69,7 +69,7 @@ sample_rate = 19e3
 samples = generate_bpsk_with_freq_offset(
     num_samples=500,
     samples_per_symbol=1,
-    freq_offset_hz=300,   # simulate a 200 Hz offset
+    freq_offset_hz=500,   # simulate a 200 Hz offset
     fs=sample_rate,
     noise_std=0.05
 )
@@ -83,8 +83,8 @@ def format_input(x: int, y: int) -> int:
     return (y_16 << 16) | x_16
 
 def format_costas_sample_data(iq: np.complex64):
-    x = int(np.clip(iq.real * GAIN, -32768, 32767))
-    y = int(np.clip(iq.imag * GAIN, -32768, 32767))
+    x = int(np.clip(iq.real * 500, -32768, 32767))
+    y = int(np.clip(iq.imag * 500, -32768, 32767))
 
     # convert to 16-bit unsigned containers
     x &= 0xFFFF
@@ -308,7 +308,7 @@ async def test_a(dut):
 
     for i in range(len(samples)):
         ind.append({'type':'write_single', "contents":{"data": format_costas_sample_data(samples[i]),"last":0}})
-        ind.append({'type':'pause', "duration": 7})
+        ind.append({'type':'pause', "duration": 16})
     
     #feed the driver on the S Side:
     #always be ready to receive data:
@@ -379,7 +379,7 @@ def axis_runner():
     proj_path = Path(__file__).resolve().parent.parent
     sys.path.append(str(proj_path / "sim" / "model"))
     sources = [proj_path / "hdl" / "costas.sv", proj_path / "hdl" / "costas_wrapper.v"] #grow/modify this as needed.
-    hdl_toplevel = "costas_wrapper"
+    hdl_toplevel = "costas"
     build_test_args = ["-Wall"]#,"COCOTB_RESOLVE_X=ZEROS"]
     parameters = {}
     sys.path.append(str(proj_path / "sim"))
