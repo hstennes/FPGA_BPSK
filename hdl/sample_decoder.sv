@@ -60,17 +60,19 @@ module sample_decoder #
                     end
                 end
                 RECORDING: begin
-                    if((bit_counter == 0 && sample_counter == SAMPLES_PER_SYMBOL / 2) || sample_counter == SAMPLES_PER_SYMBOL - 1) begin
-                        m00_axis_tdata <= (m00_axis_tdata << 1) + decoded_bit;
-                        if(bit_counter == PACKET_LENGTH - 1) begin
-                            state <= IDLE;
-                            m00_axis_tvalid <= 1;
+                    if(s00_axis_tvalid) begin
+                        if((bit_counter == 0 && sample_counter == SAMPLES_PER_SYMBOL / 2) || sample_counter == SAMPLES_PER_SYMBOL - 1) begin
+                            m00_axis_tdata <= (m00_axis_tdata << 1) + decoded_bit;
+                            if(bit_counter == PACKET_LENGTH - 1) begin
+                                state <= IDLE;
+                                m00_axis_tvalid <= 1;
+                            end else begin
+                                sample_counter <= 0;
+                                bit_counter <= bit_counter + 1;
+                            end
                         end else begin
-                            sample_counter <= 0;
-                            bit_counter <= bit_counter + 1;
+                            sample_counter <= sample_counter + 1;
                         end
-                    end else begin
-                        sample_counter <= sample_counter + 1;
                     end
                 end
             endcase

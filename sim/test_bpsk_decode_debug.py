@@ -17,6 +17,8 @@ if VICOCO:
     from vicoco.vivado_runner import get_runner
 else:
     from cocotb.runner import get_runner
+    import matplotlib.pyplot as plt
+
 #new!!!
 from cocotb_bus.bus import Bus
 from cocotb_bus.drivers import BusDriver
@@ -39,6 +41,10 @@ def format_iq_data(iq: np.complex64):
     # print(hex(x), hex(y))
 
     return (y << 16) | x
+
+def uint32_to_int32(x):
+    x = x & 0xFFFFFFFF  # ensure 32-bit
+    return x if x < 0x80000000 else x - 0x100000000
 
 class AXISMonitor(BusMonitor):
     """
@@ -165,9 +171,11 @@ async def reset(clk,rst, cycles_held = 3,polarity=1):
 async def test_a(dut):
     """cocotb test for AXIS FIR15"""
     received_squitters = []
+    filter_output = []
 
     inm = AXISMonitor(dut,'s00',dut.s00_axis_aclk)
     outm = AXISMonitor(dut,'m00',dut.s00_axis_aclk, callback = lambda x: received_squitters.append(x.integer))
+    outm2 = AXISMonitor(dut,'m01',dut.s00_axis_aclk, callback = lambda x: filter_output.append(uint32_to_int32(x.integer)))
     ind = AXISDriver(dut,'s00',dut.s00_axis_aclk,"M") #M driver for S port
     outd = AXISDriver(dut,'m00',dut.s00_axis_aclk,"S") #S driver for M port
    
@@ -229,6 +237,15 @@ async def test_a(dut):
     print("Received squitters:")
     print(received_squitters)
 
+    if not VICOCO:
+        plt.figure()
+        plt.plot(filter_output, 'o-')
+        plt.title("Filtered Output with Preamble Detection")
+        plt.xlabel("Sample Index")
+        plt.ylabel("Filtered Value")
+        plt.grid()
+        plt.show()
+
 def adsb_runner():
     """Simulate the ADSB decoder using the Python runner."""
     hdl_toplevel_lang = os.getenv("HDL_TOPLEVEL_LANG", "verilog")
@@ -238,13 +255,13 @@ def adsb_runner():
         sim = os.getenv("SIM", "icarus")
     sys.path.append(str(proj_path / "sim" / "model"))
     sys.path.append(str(proj_path / "hdl" ))
-    sources = [proj_path / "hdl" / "axis_fir.sv", proj_path / "hdl" / "preamble_detector.sv", proj_path / "hdl" / "bpsk_decoder.sv", proj_path / "hdl" / "sample_decoder.sv", proj_path / "hdl" / "bpsk_decoder_wrapper.v"]
+    sources = [proj_path / "hdl" / "axis_fir.sv", proj_path / "hdl" / "preamble_detector.sv", proj_path / "hdl" / "bpsk_decoder_debug.sv", proj_path / "hdl" / "sample_decoder.sv", proj_path / "hdl" / "bpsk_decoder_debug_wrapper.v"]
     #sources = [proj_path / "hdl" / "j_math.sv"]
     build_test_args = ["-Wall"]
     parameters = {} #!!!
     sys.path.append(str(proj_path / "sim"))
     runner = get_runner(sim)
-    hdl_toplevel = "bpsk_decoder_wrapper"
+    hdl_toplevel = "bpsk_decoder_debug_wrapper"
     runner.build(
         sources=sources,
         hdl_toplevel=hdl_toplevel,

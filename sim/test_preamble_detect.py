@@ -235,7 +235,7 @@ def adsb_runner():
     #sim = os.getenv("SIM", "vivado")
     sys.path.append(str(proj_path / "sim" / "model"))
     sys.path.append(str(proj_path / "hdl" ))
-    sources = [proj_path / "hdl" / "axis_fir.sv", proj_path / "hdl" / "preamble_detector.sv", proj_path / "hdl" / "top.sv", proj_path / "hdl" / "bpsk_decoder.sv", proj_path / "hdl" / "cordic.sv"]
+    sources = [proj_path / "hdl" / "axis_fir.sv", proj_path / "hdl" / "preamble_detector.sv", proj_path / "hdl" / "bpsk_decoder.sv", proj_path / "hdl" / "sample_decoder.sv", proj_path / "hdl" / "cordic.sv"]
     #sources = [proj_path / "hdl" / "j_math.sv"]
     build_test_args = ["-Wall"]
     parameters = {} #!!!
