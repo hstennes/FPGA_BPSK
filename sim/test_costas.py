@@ -83,8 +83,8 @@ def format_input(x: int, y: int) -> int:
     return (y_16 << 16) | x_16
 
 def format_costas_sample_data(iq: np.complex64):
-    x = int(np.clip(iq.real * 500, -32768, 32767))
-    y = int(np.clip(iq.imag * 500, -32768, 32767))
+    x = int(np.clip(iq.real * 1000, -32768, 32767))
+    y = int(np.clip(iq.imag * 1000, -32768, 32767))
 
     # convert to 16-bit unsigned containers
     x &= 0xFFFF
